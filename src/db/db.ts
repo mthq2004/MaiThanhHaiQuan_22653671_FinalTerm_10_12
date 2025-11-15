@@ -82,3 +82,24 @@ export const seedSampleMovies = async (): Promise<void> => {
     throw error;
   }
 };
+
+// Insert a new movie
+export const insertMovie = async (
+  title: string,
+  year: number | null,
+  rating: number | null
+): Promise<number> => {
+  const database = getDB();
+  try {
+    const now = Math.floor(Date.now() / 1000);
+    const result = await database.runAsync(
+      "INSERT INTO movies (title, year, watched, rating, created_at) VALUES (?, ?, ?, ?, ?)",
+      [title, year, 0, rating, now]
+    );
+    console.log("Movie inserted successfully");
+    return result.lastInsertRowId || 0;
+  } catch (error) {
+    console.error("Failed to insert movie:", error);
+    throw error;
+  }
+};

@@ -8,12 +8,15 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { getDB } from "@/db/db";
-import { Movie } from "@/types/movie";
+import { insertMovie } from "@/db/db";
+import { Movie, MovieFormData } from "@/types/movie";
+import { AddMovieModal } from "./AddMovieModal";
 
 export const MovieListScreen: React.FC = () => {
   const [movies, setMovies] = useState<Movie[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [modalVisible, setModalVisible] = useState(false);
 
   const loadMovies = useCallback(async () => {
     try {
@@ -35,6 +38,18 @@ export const MovieListScreen: React.FC = () => {
   useEffect(() => {
     loadMovies();
   }, [loadMovies]);
+
+  const handleAddMovie = useCallback(
+    async (movieData: MovieFormData) => {
+      try {
+        await insertMovie(movieData.title, movieData.year, movieData.rating);
+        await loadMovies();
+      } catch (err) {
+        throw err;
+      }
+    },
+    [loadMovies]
+  );
 
   const renderMovieItem = ({ item }: { item: Movie }) => {
     const ratingColor = item.rating ? "#fbbf24" : "#d1d5db";
@@ -100,18 +115,37 @@ export const MovieListScreen: React.FC = () => {
         <Text style={styles.emptyStateSubText}>
           Nhấn nút "+" để thêm phim mới
         </Text>
+        <AddMovieModal
+          visible={modalVisible}
+          onClose={() => setModalVisible(false)}
+          onAdd={handleAddMovie}
+        />
       </View>
     );
   }
 
   return (
-    <FlatList
-      data={movies}
-      renderItem={renderMovieItem}
-      keyExtractor={(item) => item.id.toString()}
-      style={styles.list}
-      contentContainerStyle={styles.listContent}
-    />
+    <>
+      <FlatList
+        data={movies}
+        renderItem={renderMovieItem}
+        keyExtractor={(item) => item.id.toString()}
+        style={styles.list}
+        contentContainerStyle={styles.listContent}
+      />
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => setModalVisible(true)}
+        activeOpacity={0.8}
+      >
+        <Text style={styles.fabText}>+</Text>
+      </TouchableOpacity>
+      <AddMovieModal
+        visible={modalVisible}
+        onClose={() => setModalVisible(false)}
+        onAdd={handleAddMovie}
+      />
+    </>
   );
 };
 
@@ -207,10 +241,33 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#6b7280",
     textAlign: "center",
+    marginBottom: 24,
   },
   errorText: {
     fontSize: 16,
     color: "#ef4444",
     textAlign: "center",
+  },
+  fab: {
+    position: "absolute",
+    bottom: 24,
+    right: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "#3b82f6",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  fabText: {
+    fontSize: 32,
+    color: "#fff",
+    fontWeight: "600",
+    lineHeight: 40,
   },
 });
