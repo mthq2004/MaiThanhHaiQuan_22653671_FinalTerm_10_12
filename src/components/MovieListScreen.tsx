@@ -6,9 +6,10 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import { getDB } from "@/db/db";
-import { insertMovie } from "@/db/db";
+import { insertMovie, toggleWatched } from "@/db/db";
 import { Movie, MovieFormData } from "@/types/movie";
 import { AddMovieModal } from "./AddMovieModal";
 
@@ -51,6 +52,35 @@ export const MovieListScreen: React.FC = () => {
     [loadMovies]
   );
 
+  const handleToggleWatched = useCallback(
+    (movie: Movie) => {
+      const action = movie.watched ? "chưa xem" : "đã xem";
+      Alert.alert(
+        "Xác nhận",
+        `Bạn có muốn đánh dấu "${movie.title}" là ${action}?`,
+        [
+          { text: "Hủy", onPress: () => {}, style: "cancel" },
+          {
+            text: "Đồng ý",
+            onPress: async () => {
+              try {
+                await toggleWatched(movie.id);
+                await loadMovies();
+              } catch (err) {
+                Alert.alert(
+                  "Lỗi",
+                  err instanceof Error ? err.message : "Cập nhật thất bại"
+                );
+              }
+            },
+            style: "default",
+          },
+        ]
+      );
+    },
+    [loadMovies]
+  );
+
   const renderMovieItem = ({ item }: { item: Movie }) => {
     const ratingColor = item.rating ? "#fbbf24" : "#d1d5db";
     const watchedStyle = item.watched
@@ -58,7 +88,11 @@ export const MovieListScreen: React.FC = () => {
       : styles.unwatchedItem;
 
     return (
-      <TouchableOpacity style={[styles.movieItem, watchedStyle]}>
+      <TouchableOpacity
+        style={[styles.movieItem, watchedStyle]}
+        onPress={() => handleToggleWatched(item)}
+        activeOpacity={0.7}
+      >
         <View style={styles.movieContent}>
           <Text
             style={[

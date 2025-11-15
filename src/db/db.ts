@@ -103,3 +103,30 @@ export const insertMovie = async (
     throw error;
   }
 };
+
+// Toggle watched status for a movie
+export const toggleWatched = async (movieId: number): Promise<void> => {
+  const database = getDB();
+  try {
+    // Get current watched status
+    const movie = await database.getFirstAsync<{ watched: number }>(
+      "SELECT watched FROM movies WHERE id = ?",
+      [movieId]
+    );
+
+    if (!movie) {
+      throw new Error("Movie not found");
+    }
+
+    // Toggle the status (0 -> 1, 1 -> 0)
+    const newStatus = movie.watched === 0 ? 1 : 0;
+    await database.runAsync("UPDATE movies SET watched = ? WHERE id = ?", [
+      newStatus,
+      movieId,
+    ]);
+    console.log(`Movie ${movieId} watched status toggled to ${newStatus}`);
+  } catch (error) {
+    console.error("Failed to toggle watched status:", error);
+    throw error;
+  }
+};
