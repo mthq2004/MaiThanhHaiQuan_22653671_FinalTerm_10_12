@@ -15,5 +15,19 @@
     "expo-sqlite"
   ],
   "name": "MaiThanhHaiQuan_22653671_FinalTerm_10_12",
-  "slug": "MaiThanhHaiQuan_22653671_FinalTerm_10_12"
+  "slug": "MaiThanhHaiQuan_22653671_FinalTerm_10_12",
+  "extra": {
+    "router": {
+      "origin": "https://n"
+    },
+    "eas": {
+      "projectId": "93209979-fae7-47c7-8d53-1edc83d8e837"
+    }
+  },
+  "owner": "haiquan2004",
+  "expo": {
+    "android": {
+      "package": "com.haiquan2004.MaiThanhHaiQuan_22653671_FinalTerm_10_12"
+    }
+  }
 }

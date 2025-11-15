@@ -7,7 +7,6 @@ import {
   toggleWatched,
 } from "@/db/db";
 import { Movie, MovieFormData } from "@/types/Movie";
-import { suggestedMovies } from "@/data/suggestedMovies";
 import { Alert } from "react-native";
 
 export type SortOption =
@@ -177,6 +176,17 @@ export const useMovies = (): UseMoviesReturn => {
     try {
       setImportLoading(true);
 
+      // Fetch from API
+      const response = await fetch(
+        "https://67c824890acf98d0708518a5.mockapi.io/MaiThanhHaiQuan_22653671_FinalTerm_10_12"
+      );
+
+      if (!response.ok) {
+        throw new Error("Lỗi khi lấy dữ liệu từ API");
+      }
+
+      const apiMovies = await response.json();
+
       // Get existing movies để check trùng lặp
       const db = getDB();
       const existingMovies = await db.getAllAsync<Movie>(
@@ -188,17 +198,18 @@ export const useMovies = (): UseMoviesReturn => {
       );
 
       let importedCount = 0;
-      // Map suggested movies và insert vào DB
-      for (const movie of suggestedMovies) {
+      // Map API movies và insert vào DB
+      for (const movie of apiMovies) {
         const title = movie.title;
         const year = movie.year;
         const rating = movie.rating;
 
-        // Check trùng lặp
+        // Check trùng lặp (title + year)
         const key = `${title}_${year}`;
         if (!existingSet.has(key) && title) {
           await insertMovie(title, year, rating);
           importedCount++;
+          existingSet.add(key); // Add to set to avoid duplicate in same import
         }
       }
 
