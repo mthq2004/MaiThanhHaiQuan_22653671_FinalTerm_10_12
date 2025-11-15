@@ -9,7 +9,7 @@ import {
   Alert,
 } from "react-native";
 import { getDB } from "@/db/db";
-import { insertMovie, toggleWatched, updateMovie } from "@/db/db";
+import { insertMovie, toggleWatched, updateMovie, deleteMovie } from "@/db/db";
 import { Movie, MovieFormData } from "@/types/movie";
 import { AddMovieModal } from "./AddMovieModal";
 import { EditMovieModal } from "./EditMovieModal";
@@ -116,6 +116,39 @@ export const MovieListScreen: React.FC = () => {
     [loadMovies]
   );
 
+  const handleDeleteMovie = useCallback(
+    (movie: Movie) => {
+      Alert.alert(
+        "Xác nhận xóa",
+        `Bạn có chắc muốn xóa "${movie.title}" khỏi danh sách?`,
+        [
+          { text: "Hủy", onPress: () => {}, style: "cancel" },
+          {
+            text: "Xóa",
+            onPress: async () => {
+              try {
+                await deleteMovie(movie.id);
+                await loadMovies();
+                Alert.alert(
+                  "Thành công",
+                  `Đã xóa "${movie.title}" khỏi danh sách`,
+                  [{ text: "OK", onPress: () => {} }]
+                );
+              } catch (err) {
+                Alert.alert(
+                  "Lỗi",
+                  err instanceof Error ? err.message : "Xóa thất bại"
+                );
+              }
+            },
+            style: "destructive",
+          },
+        ]
+      );
+    },
+    [loadMovies]
+  );
+
   const renderMovieItem = ({ item }: { item: Movie }) => {
     const ratingColor = item.rating ? "#fbbf24" : "#d1d5db";
     const watchedStyle = item.watched
@@ -161,6 +194,13 @@ export const MovieListScreen: React.FC = () => {
             activeOpacity={0.7}
           >
             <Text style={styles.editButtonText}>Sửa</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.deleteButton}
+            onPress={() => handleDeleteMovie(item)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.deleteButtonText}>Xóa</Text>
           </TouchableOpacity>
         </View>
 
@@ -332,6 +372,19 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   editButtonText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  deleteButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: "#ef4444",
+    borderRadius: 6,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  deleteButtonText: {
     color: "#fff",
     fontSize: 12,
     fontWeight: "600",

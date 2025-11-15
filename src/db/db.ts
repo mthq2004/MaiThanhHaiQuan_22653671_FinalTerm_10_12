@@ -150,3 +150,15 @@ export const updateMovie = async (
     throw error;
   }
 };
+
+// Delete a movie
+export const deleteMovie = async (movieId: number): Promise<void> => {
+  const database = getDB();
+  try {
+    await database.runAsync("DELETE FROM movies WHERE id = ?", [movieId]);
+    console.log(`Movie ${movieId} deleted successfully`);
+  } catch (error) {
+    console.error("Failed to delete movie:", error);
+    throw error;
+  }
+};
