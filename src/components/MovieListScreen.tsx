@@ -9,15 +9,18 @@ import {
   Alert,
 } from "react-native";
 import { getDB } from "@/db/db";
-import { insertMovie, toggleWatched } from "@/db/db";
+import { insertMovie, toggleWatched, updateMovie } from "@/db/db";
 import { Movie, MovieFormData } from "@/types/movie";
 import { AddMovieModal } from "./AddMovieModal";
+import { EditMovieModal } from "./EditMovieModal";
 
 export const MovieListScreen: React.FC = () => {
   const [movies, setMovies] = useState<Movie[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
 
   const loadMovies = useCallback(async () => {
     try {
@@ -45,6 +48,11 @@ export const MovieListScreen: React.FC = () => {
       try {
         await insertMovie(movieData.title, movieData.year, movieData.rating);
         await loadMovies();
+        Alert.alert(
+          "Thành công",
+          `Đã thêm "${movieData.title}" vào danh sách phim`,
+          [{ text: "OK", onPress: () => {} }]
+        );
       } catch (err) {
         throw err;
       }
@@ -77,6 +85,33 @@ export const MovieListScreen: React.FC = () => {
           },
         ]
       );
+    },
+    [loadMovies]
+  );
+
+  const handleEditMovie = useCallback((movie: Movie) => {
+    setSelectedMovie(movie);
+    setEditModalVisible(true);
+  }, []);
+
+  const handleUpdateMovie = useCallback(
+    async (movieId: number, movieData: MovieFormData) => {
+      try {
+        await updateMovie(
+          movieId,
+          movieData.title,
+          movieData.year,
+          movieData.rating
+        );
+        await loadMovies();
+        Alert.alert(
+          "Thành công",
+          `Đã cập nhật "${movieData.title}" thành công`,
+          [{ text: "OK", onPress: () => {} }]
+        );
+      } catch (err) {
+        throw err;
+      }
     },
     [loadMovies]
   );
@@ -117,6 +152,16 @@ export const MovieListScreen: React.FC = () => {
               <Text style={styles.unwatchedBadge}>Chưa xem</Text>
             )}
           </View>
+        </View>
+
+        <View style={styles.actionButtons}>
+          <TouchableOpacity
+            style={styles.editButton}
+            onPress={() => handleEditMovie(item)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.editButtonText}>Sửa</Text>
+          </TouchableOpacity>
         </View>
 
         {item.watched && <View style={styles.checkIcon} />}
@@ -178,6 +223,15 @@ export const MovieListScreen: React.FC = () => {
         visible={modalVisible}
         onClose={() => setModalVisible(false)}
         onAdd={handleAddMovie}
+      />
+      <EditMovieModal
+        visible={editModalVisible}
+        movie={selectedMovie}
+        onClose={() => {
+          setEditModalVisible(false);
+          setSelectedMovie(null);
+        }}
+        onUpdate={handleUpdateMovie}
       />
     </>
   );
@@ -263,6 +317,24 @@ const styles = StyleSheet.create({
     marginLeft: 12,
     justifyContent: "center",
     alignItems: "center",
+  },
+  actionButtons: {
+    flexDirection: "row",
+    gap: 8,
+    marginLeft: 12,
+  },
+  editButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: "#3b82f6",
+    borderRadius: 6,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  editButtonText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "600",
   },
   emptyStateText: {
     fontSize: 18,

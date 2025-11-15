@@ -130,3 +130,23 @@ export const toggleWatched = async (movieId: number): Promise<void> => {
     throw error;
   }
 };
+
+// Update movie information
+export const updateMovie = async (
+  movieId: number,
+  title: string,
+  year: number | null,
+  rating: number | null
+): Promise<void> => {
+  const database = getDB();
+  try {
+    await database.runAsync(
+      "UPDATE movies SET title = ?, year = ?, rating = ? WHERE id = ?",
+      [title, year, rating, movieId]
+    );
+    console.log(`Movie ${movieId} updated successfully`);
+  } catch (error) {
+    console.error("Failed to update movie:", error);
+    throw error;
+  }
+};
