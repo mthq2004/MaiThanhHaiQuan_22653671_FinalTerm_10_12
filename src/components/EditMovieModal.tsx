@@ -11,7 +11,7 @@ import {
   Platform,
   ScrollView,
 } from "react-native";
-import { Movie, MovieFormData } from "@/types/movie";
+import { Movie, MovieFormData } from "@/types/Movie";
 
 interface EditMovieModalProps {
   visible: boolean;

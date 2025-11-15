@@ -11,9 +11,10 @@ import {
 } from "react-native";
 import { getDB } from "@/db/db";
 import { insertMovie, toggleWatched, updateMovie, deleteMovie } from "@/db/db";
-import { Movie, MovieFormData } from "@/types/movie";
+import { Movie, MovieFormData } from "@/types/Movie";
 import { AddMovieModal } from "./AddMovieModal";
 import { EditMovieModal } from "./EditMovieModal";
+import { suggestedMovies } from "@/data/suggestedMovies";
 
 export const MovieListScreen: React.FC = () => {
   const [movies, setMovies] = useState<Movie[]>([]);
@@ -26,6 +27,7 @@ export const MovieListScreen: React.FC = () => {
   const [filterWatched, setFilterWatched] = useState<
     "all" | "watched" | "unwatched"
   >("all");
+  const [importLoading, setImportLoading] = useState(false);
 
   const loadMovies = useCallback(async () => {
     try {
@@ -170,6 +172,60 @@ export const MovieListScreen: React.FC = () => {
     },
     [loadMovies]
   );
+
+  const handleImportFromAPI = useCallback(async () => {
+    try {
+      setImportLoading(true);
+
+      // Get existing movies để check trùng lặp
+      const db = getDB();
+      const existingMovies = await db.getAllAsync<Movie>(
+        "SELECT title, year FROM movies"
+      );
+
+      const existingSet = new Set(
+        (existingMovies || []).map((m) => `${m.title}_${m.year}`)
+      );
+
+      let importedCount = 0;
+      // Map suggested movies và insert vào DB
+      for (const movie of suggestedMovies) {
+        const title = movie.title;
+        const year = movie.year;
+        const rating = movie.rating;
+
+        // Check trùng lặp
+        const key = `${title}_${year}`;
+        if (!existingSet.has(key) && title) {
+          await insertMovie(title, year, rating);
+          importedCount++;
+        }
+      }
+
+      await loadMovies();
+
+      if (importedCount > 0) {
+        Alert.alert(
+          "Thành công",
+          `Đã import ${importedCount} phim mới từ API`,
+          [{ text: "OK", onPress: () => {} }]
+        );
+      } else {
+        Alert.alert(
+          "Thông báo",
+          "Không có phim mới để import (tất cả đều trùng lặp)",
+          [{ text: "OK", onPress: () => {} }]
+        );
+      }
+    } catch (err) {
+      Alert.alert(
+        "Lỗi",
+        err instanceof Error ? err.message : "Import từ API thất bại"
+      );
+    } finally {
+      setImportLoading(false);
+    }
+  }, [loadMovies]);
 
   const renderMovieItem = ({ item }: { item: Movie }) => {
     const ratingColor = item.rating ? "#fbbf24" : "#d1d5db";
@@ -328,6 +384,21 @@ export const MovieListScreen: React.FC = () => {
         </TouchableOpacity>
       </View>
 
+      <View style={styles.importButtonContainer}>
+        <TouchableOpacity
+          style={styles.importButton}
+          onPress={handleImportFromAPI}
+          disabled={importLoading}
+          activeOpacity={0.7}
+        >
+          {importLoading ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Text style={styles.importButtonText}>📥 Import từ API</Text>
+          )}
+        </TouchableOpacity>
+      </View>
+
       {filteredMovies.length === 0 ? (
         <View style={styles.emptySearchContainer}>
           <Text style={styles.emptySearchText}>
@@ -418,6 +489,23 @@ const styles = StyleSheet.create({
   },
   filterButtonTextActive: {
     color: "#3b82f6",
+  },
+  importButtonContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  importButton: {
+    backgroundColor: "#10b981",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  importButtonText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "600",
   },
   emptySearchContainer: {
     flex: 1,
