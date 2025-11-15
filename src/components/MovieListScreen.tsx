@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
+  TextInput,
 } from "react-native";
 import { getDB } from "@/db/db";
 import { insertMovie, toggleWatched, updateMovie, deleteMovie } from "@/db/db";
@@ -21,6 +22,10 @@ export const MovieListScreen: React.FC = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
+  const [searchText, setSearchText] = useState("");
+  const [filterWatched, setFilterWatched] = useState<
+    "all" | "watched" | "unwatched"
+  >("all");
 
   const loadMovies = useCallback(async () => {
     try {
@@ -42,6 +47,23 @@ export const MovieListScreen: React.FC = () => {
   useEffect(() => {
     loadMovies();
   }, [loadMovies]);
+
+  // Filter and search movies with useMemo for optimization
+  const filteredMovies = useMemo(() => {
+    return movies.filter((movie) => {
+      // Filter by watched status
+      if (filterWatched === "watched" && !movie.watched) return false;
+      if (filterWatched === "unwatched" && movie.watched) return false;
+
+      // Filter by search text (case-insensitive)
+      if (searchText.trim()) {
+        const searchLower = searchText.toLowerCase();
+        return movie.title.toLowerCase().includes(searchLower);
+      }
+
+      return true;
+    });
+  }, [movies, searchText, filterWatched]);
 
   const handleAddMovie = useCallback(
     async (movieData: MovieFormData) => {
@@ -245,13 +267,82 @@ export const MovieListScreen: React.FC = () => {
 
   return (
     <>
-      <FlatList
-        data={movies}
-        renderItem={renderMovieItem}
-        keyExtractor={(item) => item.id.toString()}
-        style={styles.list}
-        contentContainerStyle={styles.listContent}
-      />
+      <View style={styles.searchContainer}>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Tìm kiếm phim..."
+          value={searchText}
+          onChangeText={setSearchText}
+          placeholderTextColor="#9ca3af"
+        />
+      </View>
+
+      <View style={styles.filterContainer}>
+        <TouchableOpacity
+          style={[
+            styles.filterButton,
+            filterWatched === "all" && styles.filterButtonActive,
+          ]}
+          onPress={() => setFilterWatched("all")}
+        >
+          <Text
+            style={[
+              styles.filterButtonText,
+              filterWatched === "all" && styles.filterButtonTextActive,
+            ]}
+          >
+            Tất cả
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.filterButton,
+            filterWatched === "watched" && styles.filterButtonActive,
+          ]}
+          onPress={() => setFilterWatched("watched")}
+        >
+          <Text
+            style={[
+              styles.filterButtonText,
+              filterWatched === "watched" && styles.filterButtonTextActive,
+            ]}
+          >
+            Đã xem
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.filterButton,
+            filterWatched === "unwatched" && styles.filterButtonActive,
+          ]}
+          onPress={() => setFilterWatched("unwatched")}
+        >
+          <Text
+            style={[
+              styles.filterButtonText,
+              filterWatched === "unwatched" && styles.filterButtonTextActive,
+            ]}
+          >
+            Chưa xem
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {filteredMovies.length === 0 ? (
+        <View style={styles.emptySearchContainer}>
+          <Text style={styles.emptySearchText}>
+            Không tìm thấy phim phù hợp
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          data={filteredMovies}
+          renderItem={renderMovieItem}
+          keyExtractor={(item) => item.id.toString()}
+          style={styles.list}
+          contentContainerStyle={styles.listContent}
+        />
+      )}
       <TouchableOpacity
         style={styles.fab}
         onPress={() => setModalVisible(true)}
@@ -283,6 +374,59 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 20,
+  },
+  searchContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: "#f3f4f6",
+  },
+  searchInput: {
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: "#1f2937",
+    backgroundColor: "#fff",
+  },
+  filterContainer: {
+    flexDirection: "row",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 8,
+  },
+  filterButton: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    borderRadius: 6,
+    backgroundColor: "#f9fafb",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  filterButtonActive: {
+    borderColor: "#3b82f6",
+    backgroundColor: "#dbeafe",
+  },
+  filterButtonText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#6b7280",
+  },
+  filterButtonTextActive: {
+    color: "#3b82f6",
+  },
+  emptySearchContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  emptySearchText: {
+    fontSize: 16,
+    color: "#9ca3af",
   },
   list: {
     flex: 1,
