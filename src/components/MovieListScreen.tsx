@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -6,226 +6,91 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-  Alert,
   TextInput,
+  RefreshControl,
 } from "react-native";
-import { getDB } from "@/db/db";
-import { insertMovie, toggleWatched, updateMovie, deleteMovie } from "@/db/db";
 import { Movie, MovieFormData } from "@/types/Movie";
 import { AddMovieModal } from "./AddMovieModal";
 import { EditMovieModal } from "./EditMovieModal";
-import { suggestedMovies } from "@/data/suggestedMovies";
+import { useMovies, SortOption } from "@/hooks/useMovies";
+
+const SORT_OPTIONS: { label: string; value: SortOption }[] = [
+  { label: "Mới nhất", value: "newest" },
+  { label: "Cũ nhất", value: "oldest" },
+  { label: "Năm (cũ→mới)", value: "year-asc" },
+  { label: "Năm (mới→cũ)", value: "year-desc" },
+  { label: "Rating cao", value: "rating" },
+];
 
 export const MovieListScreen: React.FC = () => {
-  const [movies, setMovies] = useState<Movie[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
-  const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
-  const [searchText, setSearchText] = useState("");
-  const [filterWatched, setFilterWatched] = useState<
-    "all" | "watched" | "unwatched"
-  >("all");
-  const [importLoading, setImportLoading] = useState(false);
+  const [showSortMenu, setShowSortMenu] = useState(false);
+  const {
+    movies,
+    loading,
+    error,
+    searchText,
+    setSearchText,
+    filterWatched,
+    setFilterWatched,
+    sortOption,
+    setSortOption,
+    importLoading,
+    filteredAndSortedMovies,
+    loadMovies,
+    handleAddMovie,
+    handleToggleWatched,
+    handleEditMovie: hookEditMovie,
+    handleUpdateMovie,
+    handleDeleteMovie,
+    handleImportFromAPI,
+    selectedMovie,
+    setSelectedMovie,
+  } = useMovies();
 
-  const loadMovies = useCallback(async () => {
-    try {
-      setLoading(true);
-      const db = getDB();
-      const result = await db.getAllAsync<Movie>(
-        "SELECT * FROM movies ORDER BY created_at DESC"
-      );
-      setMovies(result || []);
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load movies");
-      setMovies([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadMovies();
-  }, [loadMovies]);
-
-  // Filter and search movies with useMemo for optimization
-  const filteredMovies = useMemo(() => {
-    return movies.filter((movie) => {
-      // Filter by watched status
-      if (filterWatched === "watched" && !movie.watched) return false;
-      if (filterWatched === "unwatched" && movie.watched) return false;
-
-      // Filter by search text (case-insensitive)
-      if (searchText.trim()) {
-        const searchLower = searchText.toLowerCase();
-        return movie.title.toLowerCase().includes(searchLower);
-      }
-
-      return true;
-    });
-  }, [movies, searchText, filterWatched]);
-
-  const handleAddMovie = useCallback(
-    async (movieData: MovieFormData) => {
-      try {
-        await insertMovie(movieData.title, movieData.year, movieData.rating);
-        await loadMovies();
-        Alert.alert(
-          "Thành công",
-          `Đã thêm "${movieData.title}" vào danh sách phim`,
-          [{ text: "OK", onPress: () => {} }]
-        );
-      } catch (err) {
-        throw err;
-      }
-    },
-    [loadMovies]
-  );
-
-  const handleToggleWatched = useCallback(
-    (movie: Movie) => {
-      const action = movie.watched ? "chưa xem" : "đã xem";
-      Alert.alert(
-        "Xác nhận",
-        `Bạn có muốn đánh dấu "${movie.title}" là ${action}?`,
-        [
-          { text: "Hủy", onPress: () => {}, style: "cancel" },
-          {
-            text: "Đồng ý",
-            onPress: async () => {
-              try {
-                await toggleWatched(movie.id);
-                await loadMovies();
-              } catch (err) {
-                Alert.alert(
-                  "Lỗi",
-                  err instanceof Error ? err.message : "Cập nhật thất bại"
-                );
-              }
-            },
-            style: "default",
-          },
-        ]
-      );
-    },
-    [loadMovies]
-  );
-
-  const handleEditMovie = useCallback((movie: Movie) => {
-    setSelectedMovie(movie);
+  const handleEditMovie = (movie: Movie) => {
+    hookEditMovie(movie);
     setEditModalVisible(true);
-  }, []);
+  };
 
-  const handleUpdateMovie = useCallback(
-    async (movieId: number, movieData: MovieFormData) => {
-      try {
-        await updateMovie(
-          movieId,
-          movieData.title,
-          movieData.year,
-          movieData.rating
-        );
-        await loadMovies();
-        Alert.alert(
-          "Thành công",
-          `Đã cập nhật "${movieData.title}" thành công`,
-          [{ text: "OK", onPress: () => {} }]
-        );
-      } catch (err) {
-        throw err;
-      }
-    },
-    [loadMovies]
-  );
-
-  const handleDeleteMovie = useCallback(
-    (movie: Movie) => {
-      Alert.alert(
-        "Xác nhận xóa",
-        `Bạn có chắc muốn xóa "${movie.title}" khỏi danh sách?`,
-        [
-          { text: "Hủy", onPress: () => {}, style: "cancel" },
-          {
-            text: "Xóa",
-            onPress: async () => {
-              try {
-                await deleteMovie(movie.id);
-                await loadMovies();
-                Alert.alert(
-                  "Thành công",
-                  `Đã xóa "${movie.title}" khỏi danh sách`,
-                  [{ text: "OK", onPress: () => {} }]
-                );
-              } catch (err) {
-                Alert.alert(
-                  "Lỗi",
-                  err instanceof Error ? err.message : "Xóa thất bại"
-                );
-              }
-            },
-            style: "destructive",
-          },
-        ]
-      );
-    },
-    [loadMovies]
-  );
-
-  const handleImportFromAPI = useCallback(async () => {
+  const handleAddMovieSubmit = async (data: MovieFormData) => {
     try {
-      setImportLoading(true);
-
-      // Get existing movies để check trùng lặp
-      const db = getDB();
-      const existingMovies = await db.getAllAsync<Movie>(
-        "SELECT title, year FROM movies"
-      );
-
-      const existingSet = new Set(
-        (existingMovies || []).map((m) => `${m.title}_${m.year}`)
-      );
-
-      let importedCount = 0;
-      // Map suggested movies và insert vào DB
-      for (const movie of suggestedMovies) {
-        const title = movie.title;
-        const year = movie.year;
-        const rating = movie.rating;
-
-        // Check trùng lặp
-        const key = `${title}_${year}`;
-        if (!existingSet.has(key) && title) {
-          await insertMovie(title, year, rating);
-          importedCount++;
-        }
-      }
-
-      await loadMovies();
-
-      if (importedCount > 0) {
-        Alert.alert(
-          "Thành công",
-          `Đã import ${importedCount} phim mới từ API`,
-          [{ text: "OK", onPress: () => {} }]
-        );
-      } else {
-        Alert.alert(
-          "Thông báo",
-          "Không có phim mới để import (tất cả đều trùng lặp)",
-          [{ text: "OK", onPress: () => {} }]
-        );
-      }
+      await handleAddMovie(data);
+      setModalVisible(false);
     } catch (err) {
-      Alert.alert(
-        "Lỗi",
-        err instanceof Error ? err.message : "Import từ API thất bại"
-      );
-    } finally {
-      setImportLoading(false);
+      // Error handled in hook
     }
-  }, [loadMovies]);
+  };
+
+  const handleUpdateMovieSubmit = async (
+    movieId: number,
+    data: MovieFormData
+  ) => {
+    try {
+      await handleUpdateMovie(selectedMovie!, data);
+      setEditModalVisible(false);
+    } catch (err) {
+      // Error handled in hook
+    }
+  };
+
+  if (loading && movies.length === 0) {
+    return (
+      <View style={styles.centerContainer}>
+        <ActivityIndicator size="large" color="#3b82f6" />
+        <Text style={styles.loadingText}>Đang tải danh sách phim...</Text>
+      </View>
+    );
+  }
+
+  if (error && movies.length === 0) {
+    return (
+      <View style={styles.centerContainer}>
+        <Text style={styles.errorText}>Lỗi: {error}</Text>
+      </View>
+    );
+  }
 
   const renderMovieItem = ({ item }: { item: Movie }) => {
     const ratingColor = item.rating ? "#fbbf24" : "#d1d5db";
@@ -260,91 +125,57 @@ export const MovieListScreen: React.FC = () => {
             {item.watched ? (
               <Text style={styles.watchedBadge}>✓ Đã xem</Text>
             ) : (
-              <Text style={styles.unwatchedBadge}>Chưa xem</Text>
+              <Text style={styles.unwatchedBadge}>○ Chưa xem</Text>
             )}
           </View>
         </View>
 
-        <View style={styles.actionButtons}>
+        <View style={styles.movieActions}>
           <TouchableOpacity
-            style={styles.editButton}
+            style={styles.editBtn}
             onPress={() => handleEditMovie(item)}
             activeOpacity={0.7}
           >
-            <Text style={styles.editButtonText}>Sửa</Text>
+            <Text style={styles.actionBtnText}>✏️</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={styles.deleteButton}
+            style={styles.deleteBtn}
             onPress={() => handleDeleteMovie(item)}
             activeOpacity={0.7}
           >
-            <Text style={styles.deleteButtonText}>Xóa</Text>
+            <Text style={styles.actionBtnText}>🗑️</Text>
           </TouchableOpacity>
         </View>
-
-        {item.watched && <View style={styles.checkIcon} />}
       </TouchableOpacity>
     );
   };
 
-  if (loading) {
-    return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#3b82f6" />
-      </View>
-    );
-  }
-
-  if (error) {
-    return (
-      <View style={styles.centerContainer}>
-        <Text style={styles.errorText}>Lỗi: {error}</Text>
-      </View>
-    );
-  }
-
-  if (movies.length === 0) {
-    return (
-      <View style={styles.centerContainer}>
-        <Text style={styles.emptyStateText}>
-          Chưa có phim nào trong danh sách.
-        </Text>
-        <Text style={styles.emptyStateSubText}>
-          Nhấn nút "+" để thêm phim mới
-        </Text>
-        <AddMovieModal
-          visible={modalVisible}
-          onClose={() => setModalVisible(false)}
-          onAdd={handleAddMovie}
-        />
-      </View>
-    );
-  }
-
   return (
-    <>
+    <View style={styles.container}>
+      {/* Search Input */}
       <View style={styles.searchContainer}>
         <TextInput
           style={styles.searchInput}
           placeholder="Tìm kiếm phim..."
           value={searchText}
           onChangeText={setSearchText}
-          placeholderTextColor="#9ca3af"
+          placeholderTextColor="#999"
         />
       </View>
 
+      {/* Filter Buttons */}
       <View style={styles.filterContainer}>
         <TouchableOpacity
           style={[
-            styles.filterButton,
-            filterWatched === "all" && styles.filterButtonActive,
+            styles.filterBtn,
+            filterWatched === "all" && styles.filterBtnActive,
           ]}
           onPress={() => setFilterWatched("all")}
         >
           <Text
             style={[
-              styles.filterButtonText,
-              filterWatched === "all" && styles.filterButtonTextActive,
+              styles.filterBtnText,
+              filterWatched === "all" && styles.filterBtnTextActive,
             ]}
           >
             Tất cả
@@ -352,15 +183,15 @@ export const MovieListScreen: React.FC = () => {
         </TouchableOpacity>
         <TouchableOpacity
           style={[
-            styles.filterButton,
-            filterWatched === "watched" && styles.filterButtonActive,
+            styles.filterBtn,
+            filterWatched === "watched" && styles.filterBtnActive,
           ]}
           onPress={() => setFilterWatched("watched")}
         >
           <Text
             style={[
-              styles.filterButtonText,
-              filterWatched === "watched" && styles.filterButtonTextActive,
+              styles.filterBtnText,
+              filterWatched === "watched" && styles.filterBtnTextActive,
             ]}
           >
             Đã xem
@@ -368,15 +199,15 @@ export const MovieListScreen: React.FC = () => {
         </TouchableOpacity>
         <TouchableOpacity
           style={[
-            styles.filterButton,
-            filterWatched === "unwatched" && styles.filterButtonActive,
+            styles.filterBtn,
+            filterWatched === "unwatched" && styles.filterBtnActive,
           ]}
           onPress={() => setFilterWatched("unwatched")}
         >
           <Text
             style={[
-              styles.filterButtonText,
-              filterWatched === "unwatched" && styles.filterButtonTextActive,
+              styles.filterBtnText,
+              filterWatched === "unwatched" && styles.filterBtnTextActive,
             ]}
           >
             Chưa xem
@@ -384,36 +215,86 @@ export const MovieListScreen: React.FC = () => {
         </TouchableOpacity>
       </View>
 
-      <View style={styles.importButtonContainer}>
+      {/* Sort and Action Buttons */}
+      <View style={styles.actionBar}>
+        <View style={styles.sortContainer}>
+          <TouchableOpacity
+            style={styles.sortBtn}
+            onPress={() => setShowSortMenu(!showSortMenu)}
+          >
+            <Text style={styles.sortBtnText}>
+              📊 {SORT_OPTIONS.find((o) => o.value === sortOption)?.label}
+            </Text>
+          </TouchableOpacity>
+          {showSortMenu && (
+            <View style={styles.sortMenu}>
+              {SORT_OPTIONS.map((option) => (
+                <TouchableOpacity
+                  key={option.value}
+                  style={[
+                    styles.sortMenuItem,
+                    sortOption === option.value && styles.sortMenuItemActive,
+                  ]}
+                  onPress={() => {
+                    setSortOption(option.value);
+                    setShowSortMenu(false);
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.sortMenuItemText,
+                      sortOption === option.value &&
+                        styles.sortMenuItemTextActive,
+                    ]}
+                  >
+                    {option.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </View>
+
         <TouchableOpacity
-          style={styles.importButton}
+          style={styles.importBtn}
           onPress={handleImportFromAPI}
           disabled={importLoading}
-          activeOpacity={0.7}
         >
           {importLoading ? (
             <ActivityIndicator size="small" color="#fff" />
           ) : (
-            <Text style={styles.importButtonText}>📥 Import từ API</Text>
+            <Text style={styles.importBtnText}>📥 Import</Text>
           )}
         </TouchableOpacity>
       </View>
 
-      {filteredMovies.length === 0 ? (
-        <View style={styles.emptySearchContainer}>
-          <Text style={styles.emptySearchText}>
-            Không tìm thấy phim phù hợp
+      {/* Movie List */}
+      {filteredAndSortedMovies.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>
+            {searchText
+              ? "Không tìm thấy phim nào 🔍"
+              : "Danh sách phim trống 📽️"}
           </Text>
         </View>
       ) : (
         <FlatList
-          data={filteredMovies}
+          data={filteredAndSortedMovies}
           renderItem={renderMovieItem}
           keyExtractor={(item) => item.id.toString()}
-          style={styles.list}
+          refreshControl={
+            <RefreshControl
+              refreshing={loading}
+              onRefresh={loadMovies}
+              colors={["#3b82f6"]}
+              tintColor="#3b82f6"
+            />
+          }
           contentContainerStyle={styles.listContent}
         />
       )}
+
+      {/* Add Movie FAB */}
       <TouchableOpacity
         style={styles.fab}
         onPress={() => setModalVisible(true)}
@@ -421,228 +302,252 @@ export const MovieListScreen: React.FC = () => {
       >
         <Text style={styles.fabText}>+</Text>
       </TouchableOpacity>
+
+      {/* Modals */}
       <AddMovieModal
         visible={modalVisible}
         onClose={() => setModalVisible(false)}
-        onAdd={handleAddMovie}
+        onAdd={handleAddMovieSubmit}
       />
-      <EditMovieModal
-        visible={editModalVisible}
-        movie={selectedMovie}
-        onClose={() => {
-          setEditModalVisible(false);
-          setSelectedMovie(null);
-        }}
-        onUpdate={handleUpdateMovie}
-      />
-    </>
+      {selectedMovie && (
+        <EditMovieModal
+          visible={editModalVisible}
+          movie={selectedMovie}
+          onClose={() => {
+            setEditModalVisible(false);
+            setSelectedMovie(null);
+          }}
+          onUpdate={handleUpdateMovieSubmit}
+        />
+      )}
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#f8f9fa",
+  },
   centerContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 20,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: "#666",
+    marginTop: 10,
+  },
+  errorText: {
+    fontSize: 14,
+    color: "#ef4444",
+    textAlign: "center",
   },
   searchContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: "#f3f4f6",
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 8,
   },
   searchInput: {
-    borderWidth: 1,
-    borderColor: "#d1d5db",
+    backgroundColor: "#fff",
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 14,
-    color: "#1f2937",
-    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    color: "#333",
   },
   filterContainer: {
     flexDirection: "row",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     gap: 8,
   },
-  filterButton: {
+  filterBtn: {
     flex: 1,
     paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderWidth: 1,
-    borderColor: "#d1d5db",
+    paddingHorizontal: 10,
     borderRadius: 6,
-    backgroundColor: "#f9fafb",
+    backgroundColor: "#e5e7eb",
     alignItems: "center",
-    justifyContent: "center",
   },
-  filterButtonActive: {
-    borderColor: "#3b82f6",
-    backgroundColor: "#dbeafe",
+  filterBtnActive: {
+    backgroundColor: "#3b82f6",
   },
-  filterButtonText: {
+  filterBtnText: {
+    fontSize: 12,
+    color: "#666",
+    fontWeight: "500",
+  },
+  filterBtnTextActive: {
+    color: "#fff",
+  },
+  actionBar: {
+    flexDirection: "row",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 8,
+    alignItems: "center",
+  },
+  sortContainer: {
+    flex: 1,
+    position: "relative",
+  },
+  sortBtn: {
+    backgroundColor: "#6366f1",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    alignItems: "center",
+  },
+  sortBtnText: {
+    color: "#fff",
     fontSize: 12,
     fontWeight: "600",
-    color: "#6b7280",
   },
-  filterButtonTextActive: {
-    color: "#3b82f6",
+  sortMenu: {
+    position: "absolute",
+    top: 40,
+    left: 0,
+    right: 0,
+    backgroundColor: "#fff",
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    zIndex: 100,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
   },
-  importButtonContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+  sortMenuItem: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f0f0f0",
   },
-  importButton: {
-    backgroundColor: "#10b981",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
+  sortMenuItemActive: {
+    backgroundColor: "#f0f4ff",
   },
-  importButtonText: {
-    color: "#fff",
-    fontSize: 14,
+  sortMenuItemText: {
+    fontSize: 13,
+    color: "#333",
+  },
+  sortMenuItemTextActive: {
+    color: "#6366f1",
     fontWeight: "600",
   },
-  emptySearchContainer: {
+  importBtn: {
+    backgroundColor: "#10b981",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    minWidth: 90,
+    alignItems: "center",
+  },
+  importBtnText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  emptyContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
   },
-  emptySearchText: {
+  emptyText: {
     fontSize: 16,
-    color: "#9ca3af",
-  },
-  list: {
-    flex: 1,
+    color: "#999",
+    textAlign: "center",
   },
   listContent: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    paddingBottom: 80,
   },
   movieItem: {
     flexDirection: "row",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    marginBottom: 12,
-    borderRadius: 12,
-    backgroundColor: "#f3f4f6",
-    alignItems: "center",
+    backgroundColor: "#fff",
+    borderRadius: 8,
+    marginBottom: 10,
+    padding: 12,
     borderLeftWidth: 4,
-    borderLeftColor: "#ef4444",
-  },
-  unwatchedItem: {
-    backgroundColor: "#f9fafb",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
   },
   watchedItem: {
-    backgroundColor: "#f0fdf4",
-    borderLeftColor: "#22c55e",
+    borderLeftColor: "#10b981",
+    opacity: 0.7,
+  },
+  unwatchedItem: {
+    borderLeftColor: "#f59e0b",
   },
   movieContent: {
     flex: 1,
   },
   movieTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "600",
     color: "#1f2937",
-    marginBottom: 8,
+    marginBottom: 6,
   },
   movieTitleWatched: {
-    color: "#6b7280",
     textDecorationLine: "line-through",
+    color: "#9ca3af",
   },
   movieMeta: {
     flexDirection: "row",
+    gap: 8,
     alignItems: "center",
-    gap: 12,
+    flexWrap: "wrap",
   },
   metaText: {
     fontSize: 12,
-    color: "#6b7280",
+    color: "#666",
   },
   watchedBadge: {
     fontSize: 11,
+    color: "#10b981",
     fontWeight: "600",
-    color: "#22c55e",
-    backgroundColor: "#dcfce7",
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 4,
   },
   unwatchedBadge: {
     fontSize: 11,
-    fontWeight: "600",
     color: "#ef4444",
-    backgroundColor: "#fee2e2",
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 4,
+    fontWeight: "600",
   },
-  checkIcon: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: "#22c55e",
-    marginLeft: 12,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  actionButtons: {
+  movieActions: {
     flexDirection: "row",
     gap: 8,
-    marginLeft: 12,
   },
-  editButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: "#3b82f6",
-    borderRadius: 6,
+  editBtn: {
     justifyContent: "center",
     alignItems: "center",
-  },
-  editButtonText: {
-    color: "#fff",
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  deleteButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: "#ef4444",
+    width: 36,
+    height: 36,
     borderRadius: 6,
+    backgroundColor: "#dbeafe",
+  },
+  deleteBtn: {
     justifyContent: "center",
     alignItems: "center",
+    width: 36,
+    height: 36,
+    borderRadius: 6,
+    backgroundColor: "#fee2e2",
   },
-  deleteButtonText: {
-    color: "#fff",
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  emptyStateText: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#1f2937",
-    marginBottom: 8,
-    textAlign: "center",
-  },
-  emptyStateSubText: {
-    fontSize: 14,
-    color: "#6b7280",
-    textAlign: "center",
-    marginBottom: 24,
-  },
-  errorText: {
+  actionBtnText: {
     fontSize: 16,
-    color: "#ef4444",
-    textAlign: "center",
   },
   fab: {
     position: "absolute",
-    bottom: 24,
-    right: 24,
+    bottom: 20,
+    right: 20,
     width: 56,
     height: 56,
     borderRadius: 28,
@@ -651,14 +556,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
     elevation: 5,
   },
   fabText: {
     fontSize: 32,
     color: "#fff",
-    fontWeight: "600",
-    lineHeight: 40,
+    fontWeight: "300",
   },
 });
