@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { initializeDB } from "@/db/db";
+import { initializeDB, createMoviesTable, seedSampleMovies } from "@/db/db";
 
 export default function Page() {
   const insets = useSafeAreaInsets();
@@ -12,6 +12,8 @@ export default function Page() {
     const setupDB = async () => {
       try {
         await initializeDB();
+        await createMoviesTable();
+        await seedSampleMovies();
         setDbReady(true);
       } catch (err) {
         setError(
@@ -32,7 +34,7 @@ export default function Page() {
         <Text className="text-red-500 text-lg">Error: {error}</Text>
       ) : dbReady ? (
         <Text className="text-green-600 text-lg font-semibold">
-          Database Connected ✓
+          Database & Table Ready ✓
         </Text>
       ) : (
         <Text className="text-blue-600 text-lg">Initializing database...</Text>
