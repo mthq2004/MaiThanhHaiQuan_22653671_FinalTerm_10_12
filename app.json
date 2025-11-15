@@ -1,33 +1,39 @@
 {
-  "scheme": "acme",
-  "userInterfaceStyle": "automatic",
-  "orientation": "default",
-  "web": {
-    "output": "static"
-  },
-  "plugins": [
-    [
-      "expo-router",
-      {
-        "origin": "https://n"
-      }
-    ],
-    "expo-sqlite"
-  ],
-  "name": "MaiThanhHaiQuan_22653671_FinalTerm_10_12",
-  "slug": "MaiThanhHaiQuan_22653671_FinalTerm_10_12",
-  "extra": {
-    "router": {
-      "origin": "https://n"
-    },
-    "eas": {
-      "projectId": "93209979-fae7-47c7-8d53-1edc83d8e837"
-    }
-  },
-  "owner": "haiquan2004",
   "expo": {
+    "name": "MaiThanhHaiQuan_22653671_FinalTerm_10_12",
+    "slug": "MaiThanhHaiQuan_22653671_FinalTerm_10_12",
+    "owner": "haiquan2004",
+
+    "scheme": "acme",
+    "userInterfaceStyle": "automatic",
+    "orientation": "default",
+
+    "web": {
+      "output": "static"
+    },
+
+    "plugins": [
+      [
+        "expo-router",
+        {
+          "origin": "https://n"
+        }
+      ],
+      "expo-sqlite"
+    ],
+
+    "extra": {
+      "router": {
+        "origin": "https://n"
+      },
+      "eas": {
+        "projectId": "93209979-fae7-47c7-8d53-1edc83d8e837"
+      }
+    },
+
     "android": {
-      "package": "com.haiquan2004.MaiThanhHaiQuan_22653671_FinalTerm_10_12"
+      "package": "com.haiquan2004.MaiThanhHaiQuan_22653671_FinalTerm_10_12",
+      "versionCode": 1
     }
   }
 }
